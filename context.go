@@ -48,7 +48,6 @@ func newSignalCtx(parent context.Context) *signalCtx {
 	return &signalCtx{
 		Context: parent,
 		sigchan: make(chan os.Signal, 1),
-		recv:    make(chan struct{}),
 	}
 }
 
@@ -83,11 +82,15 @@ func Signal(ctx context.Context) (os.Signal, error) {
 func Recv(ctx context.Context) <-chan struct{} {
 	if sigctx, ok := ctx.(*signalCtx); ok {
 		sigctx.mu.Lock()
+		if sigctx.recv == nil {
+			sigctx.recv = make(chan struct{})
+		}
 		r := sigctx.recv
 		sigctx.mu.Unlock()
 
 		return r
 	}
+
 	return nil
 }
 
