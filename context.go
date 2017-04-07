@@ -63,8 +63,8 @@ func WithCancelSignals(parent context.Context, sig ...os.Signal) context.Context
 				return
 			case sigctx.signal = <-sigctx.sigchan:
 				sigctx.errOnce.Do(func() {
-					cancel()
 					sigctx.err = Canceled
+					cancel()
 				})
 			}
 		}
