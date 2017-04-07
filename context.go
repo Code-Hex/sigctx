@@ -1,3 +1,29 @@
+// MIT License
+//
+// Copyright (c) 2016 K
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+// Package sigctx were developed to easily bind signals and context.Context.
+// For example, When receive a signal, you can notify received signals to all
+// goroutines using context. Or when you receive a signal, you can invoke a
+// context cancel.
 package sigctx
 
 import (
@@ -9,6 +35,7 @@ import (
 	"time"
 )
 
+// Canceled is the error returned by Context.Err when the context is canceled.
 var Canceled = errors.New("signal recieved")
 
 type signalCtx struct {
@@ -23,6 +50,11 @@ type signalCtx struct {
 	sigchan chan os.Signal
 }
 
+// WithSignals returns a copy of parent which the value can notify signals by
+// Recv(ctx).
+//
+// When the process receive signals passed to the argument, it sends the
+// information of the received signal to all the goroutines.
 func WithSignals(parent context.Context, sig ...os.Signal) context.Context {
 	sigctx := newSignalCtx(parent)
 	signal.Notify(sigctx.sigchan, sig...)
@@ -44,6 +76,7 @@ func WithSignals(parent context.Context, sig ...os.Signal) context.Context {
 	return sigctx
 }
 
+// newSignalCtx returns an initialized signalCtx.
 func newSignalCtx(parent context.Context) *signalCtx {
 	return &signalCtx{
 		Context: parent,
@@ -51,6 +84,10 @@ func newSignalCtx(parent context.Context) *signalCtx {
 	}
 }
 
+// WithCancelSignals returns a copy of parent which the value can context cancel by
+// signals.
+//
+// Context cancellation is executed after receiving the signal.
 func WithCancelSignals(parent context.Context, sig ...os.Signal) context.Context {
 	cctx, cancel := context.WithCancel(parent)
 
@@ -72,13 +109,25 @@ func WithCancelSignals(parent context.Context, sig ...os.Signal) context.Context
 	return sigctx
 }
 
+// Signal returns os.Signal and error.
+//
+// If the context passed to the argument is a signalCtx context, it returns
+// the received os.Signal.
+// Otherwise it returns nil and error message.
 func Signal(ctx context.Context) (os.Signal, error) {
 	if sigctx, ok := ctx.(*signalCtx); ok {
+		sigctx.mu.Lock()
+		defer sigctx.mu.Unlock()
 		return sigctx.signal, nil
 	}
 	return nil, errors.New("Context is not sigctx type")
 }
 
+// Recv send channel when a process receives a signal.
+//
+// You can use Recv(ctx) only if you pass a signalCtx context as an argument.
+// If you want to use Recv(ctx) please wrap context.Context so that the
+// signalCtx context is the last.
 func Recv(ctx context.Context) <-chan struct{} {
 	if sigctx, ok := ctx.(*signalCtx); ok {
 		sigctx.mu.Lock()
@@ -104,6 +153,8 @@ func (sigctx *signalCtx) Done() <-chan struct{} {
 
 func (sigctx *signalCtx) Err() error {
 	if sigctx.err != nil {
+		sigctx.mu.Lock()
+		defer sigctx.mu.Unlock()
 		return sigctx.err
 	}
 	return sigctx.Context.Err()
