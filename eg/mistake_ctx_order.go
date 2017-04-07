@@ -12,7 +12,7 @@ import (
 // This is a complicated case using `sigctx.WithSignals`
 // and `sigctx.WithCancelSignals` together.
 // If you mistake the order of using `sigctx.WithSignals` and
-// `sigctx.WithCancelSignals`, You will suffer from using context.
+// `sigctx.WithCancelSignals`, You will suffer by context.
 
 func main() {
 	// First, Create a context to notify all goroutines.
