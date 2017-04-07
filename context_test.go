@@ -123,7 +123,7 @@ func TestWithCancelSignals(t *testing.T) {
 				t.Error("Timeout")
 				return
 			case <-ctx.Done():
-				// check "signal recieved" message
+				// check "signal received" message
 				if ctx.Err() != Canceled {
 					t.Errorf("got %s, expected %s", ctx.Err().Error(), Canceled.Error())
 				}

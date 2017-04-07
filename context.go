@@ -36,7 +36,7 @@ import (
 )
 
 // Canceled is the error returned by Context.Err when the context is canceled.
-var Canceled = errors.New("signal recieved")
+var Canceled = errors.New("signal received")
 
 type signalCtx struct {
 	context.Context
@@ -66,7 +66,7 @@ func WithSignals(parent context.Context, sig ...os.Signal) context.Context {
 			case sigctx.signal = <-sigctx.sigchan:
 				if sigctx.recv != nil {
 					sigctx.mu.Lock()
-					close(sigctx.recv) // Notify that signals has been recieved
+					close(sigctx.recv) // Notify that signals has been received
 					sigctx.recv = make(chan struct{})
 					sigctx.mu.Unlock()
 				}
