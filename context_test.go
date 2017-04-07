@@ -23,24 +23,30 @@ func init() {
 func TestWithSignals(t *testing.T) {
 	_ctx, cancel := context.WithCancel(bgctx)
 	go func() {
-		time.Sleep(time.Millisecond * 200)
+		time.Sleep(time.Millisecond * 100)
 		p, err := os.FindProcess(pid)
 		if err != nil {
 			t.Fatal("Failed to get pid")
 		}
-		p.Signal(syscall.SIGUSR1)
-		p.Signal(syscall.SIGUSR2)
+		if err := p.Signal(syscall.SIGUSR1); err != nil {
+			t.Error(err.Error())
+		}
+		time.Sleep(time.Millisecond * 50)
+		if err := p.Signal(syscall.SIGUSR2); err != nil {
+			t.Error(err.Error())
+		}
+		time.Sleep(time.Millisecond * 50)
 		cancel()
 	}()
 
 	ctx := WithSignals(_ctx, syscall.SIGUSR1, syscall.SIGUSR2)
-	counter := make(map[string]int, 2)
-	cntchan := make(chan string)
+	counter := make(map[string]int)
+	signamechan := make(chan string)
 
 	go func() {
 		for {
 			select {
-			case signame := <-cntchan:
+			case signame := <-signamechan:
 				counter[signame]++
 			case <-ctx.Done():
 				return
@@ -53,29 +59,35 @@ func TestWithSignals(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			select {
-			case <-Recv(ctx):
-				signal, err := Signal(ctx)
-				if err != nil {
-					t.Error("Failed to catch signal")
+			for {
+				select {
+				case <-Recv(ctx):
+					signal, err := Signal(ctx)
+					if err != nil {
+						t.Error("Failed to catch signal")
+					}
+					switch signal {
+					case syscall.SIGUSR1, syscall.SIGUSR2:
+						signamechan <- signal.String()
+					default:
+						t.Errorf("Got signal. but it is unexpected")
+					}
+				case <-time.After(3 * time.Second):
+					t.Error("Timeout")
+					return
+				case <-ctx.Done():
+					return
 				}
-				switch signal {
-				case syscall.SIGUSR1, syscall.SIGUSR2:
-					cntchan <- signal.String()
-				default:
-					t.Errorf("Got signal. but unexpected it...")
-				}
-			case <-time.After(3 * time.Second):
-				t.Error("Timeout")
-				return
-			case <-ctx.Done():
-				return
 			}
 		}()
 	}
 	wg.Wait()
 
 	// check to send signals
+	if len := len(counter); len != 2 {
+		t.Errorf("Could not receive two signals: %d", len)
+	}
+
 	for k := range counter {
 		if counter[k] != cpu {
 			t.Errorf("Counter[%s] failed: got %d, expected %d", k, counter[k], cpu)
