@@ -3,6 +3,7 @@ Signal for context.Context.
 
 [![GoDoc](https://godoc.org/github.com/Code-Hex/sigctx?status.svg)](https://godoc.org/github.com/Code-Hex/sigctx) 
 [![Build Status](https://travis-ci.org/Code-Hex/sigctx.svg?branch=master)](https://travis-ci.org/Code-Hex/sigctx) 
+[![Coverage Status](https://coveralls.io/repos/github/Code-Hex/sigctx/badge.svg?branch=master)](https://coveralls.io/github/Code-Hex/sigctx?branch=master) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/Code-Hex/sigctx)](https://goreportcard.com/report/github.com/Code-Hex/sigctx)
 
 # Description
