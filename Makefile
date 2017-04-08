@@ -2,7 +2,7 @@ deps:
 	go get github.com/mattn/goveralls
 
 test:
-	go test -v
+	go test -cover
 
 cover: deps
 	goveralls

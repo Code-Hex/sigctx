@@ -44,8 +44,16 @@ type signalCtx struct {
 	recv chan struct{} // closed by coming signals.
 
 	mu      sync.Mutex
+	signal  os.Signal
+	sigchan chan os.Signal
+}
+
+type signalCancelCtx struct {
+	context.Context
+
+	mu      sync.Mutex
 	err     error
-	errOnce sync.Once
+	once    sync.Once
 	signal  os.Signal
 	sigchan chan os.Signal
 }
@@ -84,31 +92,6 @@ func newSignalCtx(parent context.Context) *signalCtx {
 	}
 }
 
-// WithCancelSignals returns a copy of parent which the value can context cancel by
-// signals.
-//
-// Context cancellation is executed after receiving the signal.
-func WithCancelSignals(parent context.Context, sig ...os.Signal) context.Context {
-	cctx, cancel := context.WithCancel(parent)
-
-	sigctx := newSignalCtx(cctx)
-	signal.Notify(sigctx.sigchan, sig...)
-	go func() {
-		for {
-			select {
-			case <-sigctx.Done():
-				return
-			case sigctx.signal = <-sigctx.sigchan:
-				sigctx.errOnce.Do(func() {
-					sigctx.err = Canceled
-					cancel()
-				})
-			}
-		}
-	}()
-	return sigctx
-}
-
 // Signal returns os.Signal and error.
 //
 // If the context passed to the argument is a signalCtx context, it returns
@@ -143,6 +126,7 @@ func Recv(ctx context.Context) <-chan struct{} {
 	return nil
 }
 
+// They are methods for signalCtx
 func (sigctx *signalCtx) Deadline() (deadline time.Time, ok bool) {
 	return sigctx.Context.Deadline()
 }
@@ -152,6 +136,56 @@ func (sigctx *signalCtx) Done() <-chan struct{} {
 }
 
 func (sigctx *signalCtx) Err() error {
+	return sigctx.Context.Err()
+}
+
+func (sigctx *signalCtx) Value(key interface{}) interface{} {
+	return sigctx.Context.Value(key)
+}
+
+// WithCancelSignals returns a copy of parent which the value can context cancel by
+// signals.
+//
+// Context cancellation is executed after receiving the signal.
+func WithCancelSignals(parent context.Context, sig ...os.Signal) context.Context {
+	cctx, cancel := context.WithCancel(parent)
+
+	sigctx := newSignalCancelCtx(cctx)
+	signal.Notify(sigctx.sigchan, sig...)
+	go func() {
+		for {
+			select {
+			case <-sigctx.Done():
+				return
+			case sigctx.signal = <-sigctx.sigchan:
+				sigctx.once.Do(func() {
+					sigctx.err = Canceled
+					cancel()
+				})
+			}
+		}
+	}()
+	return sigctx
+}
+
+// newSignalCancelCtx returns an initialized signalCancelCtx.
+func newSignalCancelCtx(parent context.Context) *signalCancelCtx {
+	return &signalCancelCtx{
+		Context: parent,
+		sigchan: make(chan os.Signal, 1),
+	}
+}
+
+// They are methods for signalCancelCtx
+func (sigctx *signalCancelCtx) Deadline() (deadline time.Time, ok bool) {
+	return sigctx.Context.Deadline()
+}
+
+func (sigctx *signalCancelCtx) Done() <-chan struct{} {
+	return sigctx.Context.Done()
+}
+
+func (sigctx *signalCancelCtx) Err() error {
 	if sigctx.err != nil {
 		sigctx.mu.Lock()
 		defer sigctx.mu.Unlock()
@@ -160,6 +194,6 @@ func (sigctx *signalCtx) Err() error {
 	return sigctx.Context.Err()
 }
 
-func (sigctx *signalCtx) Value(key interface{}) interface{} {
+func (sigctx *signalCancelCtx) Value(key interface{}) interface{} {
 	return sigctx.Context.Value(key)
 }
