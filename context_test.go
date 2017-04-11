@@ -2,6 +2,7 @@ package sigctx
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"runtime"
 	"sync"
@@ -26,7 +27,7 @@ func TestWithSignals(t *testing.T) {
 		time.Sleep(time.Millisecond * 100)
 		p, err := os.FindProcess(pid)
 		if err != nil {
-			t.Fatal("Failed to get pid")
+			panic(fmt.Sprint("Failed to get pid"))
 		}
 		if err := p.Signal(syscall.SIGUSR1); err != nil {
 			t.Error(err.Error())
@@ -106,7 +107,7 @@ func TestWithCancelSignals(t *testing.T) {
 		time.Sleep(time.Millisecond * 200)
 		p, err := os.FindProcess(pid)
 		if err != nil {
-			t.Fatal("Failed to get pid")
+			panic(fmt.Sprint("Failed to get pid"))
 		}
 		p.Signal(syscall.SIGUSR1)
 		time.Sleep(time.Second * 3)
